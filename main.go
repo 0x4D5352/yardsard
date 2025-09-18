@@ -5,8 +5,10 @@ import (
 	"image/color"
 	"math/rand/v2"
 	"os"
+	"sync"
 	"time"
 
+	"golang.org/x/term"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 	"golang.org/x/text/number"
@@ -45,48 +47,60 @@ func (s *SimulationState) yardSaleIteration() {
 		// fmt.Println("Randomizing pairs...")
 		// fmt.Println()
 		s.fisherYates()
+		var wg sync.WaitGroup
 		for i := range halfpeople {
-			i1 := s.PopIndices[i]
-			i2 := s.PopIndices[i+halfpeople]
-			// fmt.Printf("Pairing off agent %d against agent %d\n", i1, i2)
-			win := rand.IntN(2) == 1
-			v1 := s.PopWealth[i1]
-			v2 := s.PopWealth[i2]
-			j1 := i1
-			j2 := i2
-			if v2 > v1 {
-				j1 = i2
-				j2 = i1
-			}
-			// fmt.Println("Starting income...")
-			// fmt.Printf("Agent 1: $%d\n", s.PopWealth[j1])
-			// fmt.Printf("Agent 2: $%d\n", s.PopWealth[j2])
-			if win {
-				// fmt.Println("Poorer agent wins!")
-				delta := s.PopWealth[j2] * s.Gain / 100
-				s.PopWealth[j1] -= delta
-				s.PopWealth[j2] += delta
-			} else {
-				// fmt.Println("Wealthier agent wins!")
-				delta := s.PopWealth[j2] * s.Loss / 100
-				s.PopWealth[j1] += delta
-				s.PopWealth[j2] -= delta
-			}
-			// fmt.Println("Resulting income...")
-			// fmt.Printf("Agent 1: $%d\n", s.PopWealth[j1])
-			// fmt.Printf("Agent 2: $%d\n", s.PopWealth[j2])
-			// fmt.Println()
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				i1 := s.PopIndices[i]
+				i2 := s.PopIndices[i+halfpeople]
+				// fmt.Printf("Pairing off agent %d against agent %d\n", i1, i2)
+				win := rand.IntN(2) == 1
+				v1 := s.PopWealth[i1]
+				v2 := s.PopWealth[i2]
+				j1 := i1
+				j2 := i2
+				if v2 > v1 {
+					j1 = i2
+					j2 = i1
+				}
+				// fmt.Println("Starting income...")
+				// fmt.Printf("Agent 1: $%d\n", s.PopWealth[j1])
+				// fmt.Printf("Agent 2: $%d\n", s.PopWealth[j2])
+				if win {
+					// fmt.Println("Poorer agent wins!")
+					delta := s.PopWealth[j2] * s.Gain / 100
+					s.PopWealth[j1] -= delta
+					s.PopWealth[j2] += delta
+				} else {
+					// fmt.Println("Wealthier agent wins!")
+					delta := s.PopWealth[j2] * s.Loss / 100
+					s.PopWealth[j1] += delta
+					s.PopWealth[j2] -= delta
+				}
+				// fmt.Println("Resulting income...")
+				// fmt.Printf("Agent 1: $%d\n", s.PopWealth[j1])
+				// fmt.Printf("Agent 2: $%d\n", s.PopWealth[j2])
+				// fmt.Println()
+			}(i)
 		}
 		// fmt.Println()
+		wg.Wait()
 		// fmt.Printf("Loop %d of %d done...\n", j+1, s.Plays)
 	}
 }
 
 func (s *SimulationState) printWealth(t string) {
+	fd := int(os.Stdin.Fd())
+	width, height, err := term.GetSize(fd)
+	if err != nil {
+		fmt.Println("Error getting terminal size: ", err)
+		width = 80
+		height = 24
+	}
+	height = (height / 2) + (height / 4)
 	floatWealth := make([]float64, len(s.PopWealth))
 	xAxis := make([]float64, len(s.PopWealth))
-	width := 300
-	height := 70
 	maxWealth := 0
 	for i, v := range s.PopWealth {
 		if v > maxWealth {
@@ -98,16 +112,10 @@ func (s *SimulationState) printWealth(t string) {
 	var yMax int
 	if maxWealth < s.TotalWealth/8 {
 		yMax = s.TotalWealth / 8
-	} else if maxWealth < s.TotalWealth/7 {
-		yMax = s.TotalWealth / 7
 	} else if maxWealth < s.TotalWealth/6 {
 		yMax = s.TotalWealth / 6
-	} else if maxWealth < s.TotalWealth/5 {
-		yMax = s.TotalWealth / 5
 	} else if maxWealth < s.TotalWealth/4 {
 		yMax = s.TotalWealth / 4
-	} else if maxWealth < s.TotalWealth/3 {
-		yMax = s.TotalWealth / 3
 	} else if maxWealth < s.TotalWealth/2 {
 		yMax = s.TotalWealth / 2
 	} else {
@@ -125,7 +133,7 @@ func (s *SimulationState) printWealth(t string) {
 			asciigraph.UpperBound(float64(s.TotalWealth)))
 		fmt.Println(graph)
 	case "chart":
-		wealth := chart.Style{Symbol: 'o',
+		wealth := chart.Style{Symbol: '.',
 			LineColor: color.NRGBA{0x00, 0xcc, 0x00, 0xff},
 			FillColor: color.NRGBA{0x80, 0xff, 0x80, 0xff},
 			LineStyle: chart.SolidLine,
@@ -133,7 +141,8 @@ func (s *SimulationState) printWealth(t string) {
 		}
 		barc := chart.BarChart{
 			Title:        "Wealth Distribution",
-			SameBarWidth: true,
+			SameBarWidth: false,
+			// ShowVal:      1,
 		}
 		barc.Key.Hide = true
 		barc.XRange.ShowZero = true
@@ -147,7 +156,7 @@ func (s *SimulationState) printWealth(t string) {
 		barc.YRange.TicSetting.Delta = 0
 		tgr := txtg.New(width, height)
 		barc.Plot(tgr)
-		fmt.Println(tgr.String() + "\n")
+		fmt.Println(tgr.String())
 	}
 
 }
@@ -175,7 +184,7 @@ func initializeSimulation(people, plays, gain, loss, init int) *SimulationState 
 }
 
 func main() {
-	people := 10_000
+	people := 100
 	init := 100
 	p := message.NewPrinter(language.AmericanEnglish)
 	s := initializeSimulation(people, 100, 20, 17, init)
@@ -203,8 +212,8 @@ func main() {
 		p.Printf("Total Available Wealth: $%d | ", s.TotalWealth)
 		p.Printf("Plays per round: %d\n", s.Plays)
 		fmt.Println()
-		s.printWealth("chart")
 		s.yardSaleIteration()
+		s.printWealth("chart")
 		j++
 		// fmt.Println()
 		for i := range s.PopWealth {
