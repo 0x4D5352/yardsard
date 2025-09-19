@@ -186,6 +186,7 @@ func initializeSimulation(people, plays, gain, loss, init int) *SimulationState 
 func main() {
 	people := 100
 	init := 100
+	fps := (1000 / 100) * time.Millisecond
 	p := message.NewPrinter(language.AmericanEnglish)
 	s := initializeSimulation(people, 100, 20, 17, init)
 	fmt.Println("Intitial Conditions:")
@@ -205,7 +206,7 @@ func main() {
 		// 	fmt.Println()
 		// }
 		// fmt.Printf(".")
-		time.Sleep(9 * time.Millisecond)
+		time.Sleep(fps)
 		fmt.Printf("\033[2J\033[H")
 		p.Printf("Population Size: %d | ", s.Population)
 		p.Printf("Possible Max Starting Wealth: $%d | ", number.Decimal(init))
