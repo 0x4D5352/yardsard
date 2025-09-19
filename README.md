@@ -3,7 +3,7 @@
 ![A video displaying one run of the application](./assets/yardsard.mov)
 
 A reimplementation of the Yard Sale Model in golang. The original version of this
-simulation can be found at [](https://physics.umd.edu/hep/drew/math_general/yard_sale.html).
+simulation can be found at [https://physics.umd.edu/hep/drew/math_general/yard_sale.html](https://physics.umd.edu/hep/drew/math_general/yard_sale.html).
 The Yard Sale model is a simplified demonstration of how small differences in
 valuation of goods can lead to the centralization of wealth over time, even when
 the only factor contributing to the difference is random chance. To quote the
