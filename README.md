@@ -14,6 +14,7 @@ as the "Yard Sale Model", based on a rather well defined economic system that
 describes the exchange of goods among people in a fixed population.
 > In this model, there is no currency, but there is lots of trading among pairs
 of people.
+>
 > Imagine what would happen if every trade is fair (trading goods of equal value).
 > Then, over time, everyone's net wealth will stay constant, and the net wealth
 of the community stays constant.
