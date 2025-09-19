@@ -1,5 +1,7 @@
 # yardsard
 
+![A video displaying one run of the application](./assets/yardsard.mov)
+
 A reimplementation of the Yard Sale Model in golang. The original version of this
 simulation can be found at [https://physics.umd.edu/hep/drew/math_general/yard_sale.html].
 The Yard Sale model is a simplified demonstration of how small differences in
