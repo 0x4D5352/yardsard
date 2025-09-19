@@ -205,13 +205,12 @@ func main() {
 		// 	fmt.Println()
 		// }
 		// fmt.Printf(".")
-		time.Sleep(17 * time.Millisecond)
+		time.Sleep(9 * time.Millisecond)
 		fmt.Printf("\033[2J\033[H")
 		p.Printf("Population Size: %d | ", s.Population)
 		p.Printf("Possible Max Starting Wealth: $%d | ", number.Decimal(init))
 		p.Printf("Total Available Wealth: $%d | ", s.TotalWealth)
 		p.Printf("Plays per round: %d\n", s.Plays)
-		fmt.Println()
 		s.yardSaleIteration()
 		s.printWealth("chart")
 		j++
@@ -220,7 +219,7 @@ func main() {
 			if s.PopWealth[i] >= s.OligarchLimit {
 				// fmt.Printf(".")
 				fmt.Printf("\033[2J\033[H")
-				p.Printf("\nAfter %d rounds, Agent %d (started with $%d) has become an oligarch with $%d out of the available $%d!\n\n",
+				p.Printf("After %d rounds, Agent %d (started with $%d) has become an oligarch with $%d out of the available $%d!\n",
 					number.Decimal((j+1)*s.Plays),
 					i,
 					number.Decimal(startingWealth[i]),
