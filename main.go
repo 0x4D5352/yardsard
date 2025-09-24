@@ -7,6 +7,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,18 +20,25 @@ import (
 	"github.com/vdobler/chart/txtg"
 )
 
+type Agent struct {
+	Wealth        []int
+	CurrentWealth int
+}
+
 type SimulationState struct {
-	PopWealth     []int // an array of the current wealth for each agent
-	PopIndices    []int // an array of the indexes of Population, for Fisher-Yates
-	Now           time.Time
-	Population    int // the number of agents in the simulation
-	Plays         int // the number of rounds within an iteration step
-	Gain          int // how much A gives to B, in percentage of B's wealth
-	Loss          int // how much A takes from B, in percentage of B's wealth
-	TotalWealth   int // how much money each agent in the simulation begins with
-	OligarchLimit int // how much money an agent needs to be considered an oligarch
-	TermWidth     int
-	TermHeight    int
+	Agents []*Agent
+	// PopWealth       []int // an array of the current wealth for each agent
+	PopIndices      []int // an array of the indexes of Population, for Fisher-Yates
+	Now             time.Time
+	Population      int // the number of agents in the simulation
+	Plays           int // the number of rounds within an iteration step
+	Gain            int // how much A gives to B, in percentage of B's wealth
+	Loss            int // how much A takes from B, in percentage of B's wealth
+	TotalWealth     int // how much money each agent in the simulation begins with
+	OligarchLimit   int // how much money an agent needs to be considered an oligarch
+	TermWidth       int
+	TermHeight      int
+	CurrentOligarch int
 }
 
 // Fisher-Yates is an algorithm that produces an unbiased random
@@ -60,8 +68,8 @@ func (s *SimulationState) yardSaleIteration() {
 				i2 := s.PopIndices[i+halfpeople]
 				// fmt.Printf("Pairing off agent %d against agent %d\n", i1, i2)
 				win := rand.IntN(2) == 1
-				v1 := s.PopWealth[i1]
-				v2 := s.PopWealth[i2]
+				v1 := s.Agents[i1].CurrentWealth
+				v2 := s.Agents[i2].CurrentWealth
 				j1 := i1
 				j2 := i2
 				if v2 > v1 {
@@ -69,22 +77,24 @@ func (s *SimulationState) yardSaleIteration() {
 					j2 = i1
 				}
 				// fmt.Println("Starting income...")
-				// fmt.Printf("Agent 1: $%d\n", s.PopWealth[j1])
-				// fmt.Printf("Agent 2: $%d\n", s.PopWealth[j2])
+				// fmt.Printf("Agent 1: $%d\n", s.Agents[j1])
+				// fmt.Printf("Agent 2: $%d\n", s.Agents[j2])
 				if win {
 					// fmt.Println("Poorer agent wins!")
-					delta := s.PopWealth[j2] * s.Gain / 100
-					s.PopWealth[j1] -= delta
-					s.PopWealth[j2] += delta
+					delta := s.Agents[j2].CurrentWealth * s.Gain / 100
+					s.Agents[j1].CurrentWealth -= delta
+					s.Agents[j2].CurrentWealth += delta
 				} else {
 					// fmt.Println("Wealthier agent wins!")
-					delta := s.PopWealth[j2] * s.Loss / 100
-					s.PopWealth[j1] += delta
-					s.PopWealth[j2] -= delta
+					delta := s.Agents[j2].CurrentWealth * s.Loss / 100
+					s.Agents[j1].CurrentWealth += delta
+					s.Agents[j2].CurrentWealth -= delta
 				}
+				s.Agents[j1].Wealth = append(s.Agents[j1].Wealth, s.Agents[j1].CurrentWealth)
+				s.Agents[j2].Wealth = append(s.Agents[j2].Wealth, s.Agents[j2].CurrentWealth)
 				// fmt.Println("Resulting income...")
-				// fmt.Printf("Agent 1: $%d\n", s.PopWealth[j1])
-				// fmt.Printf("Agent 2: $%d\n", s.PopWealth[j2])
+				// fmt.Printf("Agent 1: $%d\n", s.Agents[j1])
+				// fmt.Printf("Agent 2: $%d\n", s.Agents[j2])
 				// fmt.Println()
 			}(i)
 		}
@@ -98,15 +108,15 @@ func (s *SimulationState) printWealth() string {
 	// there's gotta be a better way to do this stuff
 	width := (s.TermWidth / 4) + (s.TermWidth / 6)
 	height := (s.TermHeight / 2) + (s.TermHeight / 4)
-	floatWealth := make([]float64, len(s.PopWealth))
-	xAxis := make([]float64, len(s.PopWealth))
+	floatWealth := make([]float64, len(s.Agents))
+	xAxis := make([]float64, len(s.Agents))
 	maxWealth := 0
-	for i, v := range s.PopWealth {
-		if v > maxWealth {
-			maxWealth = v
+	for i, v := range s.Agents {
+		if v.CurrentWealth > maxWealth {
+			maxWealth = v.CurrentWealth
 		}
 		xAxis[i] = float64(i + 1)
-		floatWealth[i] = float64(v)
+		floatWealth[i] = float64(v.CurrentWealth)
 	}
 	var yMax int
 	if maxWealth < s.TotalWealth/8 {
@@ -147,10 +157,12 @@ func (s *SimulationState) printWealth() string {
 	barc.YRange.TicSetting.Delta = 0
 	tgr := txtg.New(width, height)
 	barc.Plot(tgr)
-	return tgr.String()
+	return strings.TrimSuffix(tgr.String(), "\n")
 }
 
 func (s *SimulationState) printHistogram() string {
+	// width := (s.TermWidth / 4) + (s.TermWidth / 6)
+	// height := (s.TermHeight / 2) + (s.TermHeight / 4)
 	return "to be implemented"
 }
 
@@ -163,7 +175,8 @@ func initializeSimulation(people, plays, gain, loss, init int) *SimulationState 
 		height = 24
 	}
 	s := SimulationState{
-		PopWealth:  make([]int, people),
+		Agents: make([]*Agent, 0),
+		// PopWealth:  make([]int, people),
 		PopIndices: make([]int, people),
 		Population: people,
 		Plays:      plays,
@@ -174,12 +187,17 @@ func initializeSimulation(people, plays, gain, loss, init int) *SimulationState 
 	}
 	for i := range people {
 		s.PopIndices[i] = i
-		s.PopWealth[i] = rand.IntN(init) + 1
-		s.TotalWealth += s.PopWealth[i]
+		w := rand.IntN(init) + 1
+		a := Agent{CurrentWealth: w, Wealth: make([]int, 0)}
+		s.Agents = append(s.Agents, &a)
+		s.TotalWealth += w
 	}
 	for s.TotalWealth < init*people {
-		s.PopWealth[rand.IntN(people)] += 1
+		s.Agents[rand.IntN(people)].CurrentWealth += 1
 		s.TotalWealth++
+	}
+	for i := range people {
+		s.Agents[i].Wealth = append(s.Agents[i].Wealth, s.Agents[i].CurrentWealth)
 	}
 	s.OligarchLimit = int(float64(s.TotalWealth) * 0.95)
 	return &s
@@ -234,11 +252,13 @@ func main() {
 	// p.Println("Note: one period (.) represents one round.")
 	fmt.Printf("Press enter to start simulaton!")
 	startingWealth := make([]int, s.Population)
+	for _, v := range s.Agents {
+		startingWealth = append(startingWealth, v.CurrentWealth)
+	}
 	_, err = fmt.Scanln()
 	if err != nil {
 		fmt.Println(err)
 	}
-	copy(startingWealth, s.PopWealth)
 	s.Now = time.Now()
 	j := 0
 	for {
@@ -261,20 +281,20 @@ func main() {
 		fmt.Println()
 		w := s.printWealth()
 		h := s.printHistogram()
-		fmt.Printf("%s     %s", w, h)
+		fmt.Printf("%s %s", w, h)
 		// time.Sleep(fps * 4)
 		time.Sleep(fps)
 		j++
 		// fmt.Println()
-		for i := range s.PopWealth {
-			if s.PopWealth[i] >= s.OligarchLimit {
+		for i := range s.Agents {
+			if s.Agents[i].CurrentWealth >= s.OligarchLimit {
 				// fmt.Printf(".")
 				fmt.Printf("\033[2J\033[H")
 				p.Printf("After %d rounds, Agent %d (started with $%d) has become an oligarch with $%d out of the available $%d!\n\n",
 					number.Decimal((j+1)*s.Plays),
 					i,
 					number.Decimal(startingWealth[i]),
-					number.Decimal(s.PopWealth[i]),
+					number.Decimal(s.Agents[i].CurrentWealth),
 					number.Decimal(s.TotalWealth))
 				s.printWealth()
 				os.Exit(0)
