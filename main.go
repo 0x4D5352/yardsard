@@ -177,7 +177,7 @@ func initializeSimulation(people, plays, gain, loss, init int) *SimulationState 
 	s := SimulationState{
 		Agents: make([]*Agent, 0),
 		// PopWealth:  make([]int, people),
-		PopIndices: make([]int, people),
+		PopIndices: make([]int, 0),
 		Population: people,
 		Plays:      plays,
 		Gain:       gain,
@@ -186,7 +186,7 @@ func initializeSimulation(people, plays, gain, loss, init int) *SimulationState 
 		TermHeight: height,
 	}
 	for i := range people {
-		s.PopIndices[i] = i
+		s.PopIndices = append(s.PopIndices, i)
 		w := rand.IntN(init) + 1
 		a := Agent{CurrentWealth: w, Wealth: make([]int, 0)}
 		s.Agents = append(s.Agents, &a)
@@ -251,7 +251,7 @@ func main() {
 	fmt.Printf("TermInfo: Width = %d, Height = %d\n", s.TermWidth, s.TermHeight)
 	// p.Println("Note: one period (.) represents one round.")
 	fmt.Printf("Press enter to start simulaton!")
-	startingWealth := make([]int, s.Population)
+	startingWealth := make([]int, 0)
 	for _, v := range s.Agents {
 		startingWealth = append(startingWealth, v.CurrentWealth)
 	}
@@ -296,7 +296,7 @@ func main() {
 					number.Decimal(startingWealth[i]),
 					number.Decimal(s.Agents[i].CurrentWealth),
 					number.Decimal(s.TotalWealth))
-				s.printWealth()
+				fmt.Println(s.printWealth())
 				os.Exit(0)
 			}
 		}
