@@ -7,7 +7,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"strconv"
-	"strings"
+	// "strings"
 	"sync"
 	"time"
 
@@ -26,8 +26,7 @@ type Agent struct {
 }
 
 type SimulationState struct {
-	Agents []*Agent
-	// PopWealth       []int // an array of the current wealth for each agent
+	Agents          []*Agent
 	PopIndices      []int // an array of the indexes of Population, for Fisher-Yates
 	Now             time.Time
 	Population      int // the number of agents in the simulation
@@ -104,10 +103,12 @@ func (s *SimulationState) yardSaleIteration() {
 	}
 }
 
-func (s *SimulationState) printWealth() string {
+// func (s *SimulationState) printWealth() string {
+func (s *SimulationState) printWealth() {
 	// there's gotta be a better way to do this stuff
-	width := (s.TermWidth / 4) + (s.TermWidth / 6)
-	height := (s.TermHeight / 2) + (s.TermHeight / 4)
+	// width := (s.TermWidth / 4) + (s.TermWidth / 6)
+	width := s.TermWidth
+	height := (s.TermHeight / 3) + (s.TermHeight / 6) - 2
 	floatWealth := make([]float64, len(s.Agents))
 	xAxis := make([]float64, len(s.Agents))
 	maxWealth := 0
@@ -157,13 +158,65 @@ func (s *SimulationState) printWealth() string {
 	barc.YRange.TicSetting.Delta = 0
 	tgr := txtg.New(width, height)
 	barc.Plot(tgr)
-	return strings.TrimSuffix(tgr.String(), "\n")
+	fmt.Printf(tgr.String())
+	// return strings.TrimSuffix(tgr.String(), "\n")
 }
 
-func (s *SimulationState) printHistogram() string {
-	// width := (s.TermWidth / 4) + (s.TermWidth / 6)
-	// height := (s.TermHeight / 2) + (s.TermHeight / 4)
-	return "to be implemented"
+// func (s *SimulationState) printHistogram() string {
+func (s *SimulationState) printHistogram() {
+	// TODO: figure out why this is printing the currency on the x axis
+	fmt.Printf("this doesn't work yet sorry")
+	return
+
+	// w := (s.TermWidth / 4) + (s.TermWidth / 6)
+	w := s.TermWidth
+	h := (s.TermHeight / 3) + (s.TermHeight / 6) - 2
+	m := 0
+	mi := -1
+	for i, v := range s.Agents {
+		if v.CurrentWealth > m {
+			m = v.CurrentWealth
+			mi = i
+		}
+	}
+	if mi == -1 {
+		fmt.Printf("uh oh we don't have an oligarch (which is otherwise a good thing)")
+		// return "uh oh we don't have an oligarch (which is otherwise a good thing)"
+	}
+	style := chart.Style{
+		Symbol:    'x',
+		LineColor: color.NRGBA{0xcc, 0x00, 0x00, 0xff},
+		FillColor: color.NRGBA{0xff, 0x80, 0x80, 0xff},
+		LineStyle: chart.SolidLine,
+		LineWidth: 1,
+	}
+	ostyle := chart.Style{
+		Symbol:    'o',
+		LineColor: color.NRGBA{0xcc, 0x00, 0x00, 0xff},
+		FillColor: color.NRGBA{0xff, 0x80, 0x80, 0xff},
+		LineStyle: chart.SolidLine,
+		LineWidth: 1,
+	}
+	histc := chart.HistChart{
+		Title:   fmt.Sprintf("Oligarch: Agent %d", mi),
+		Stacked: true,
+		Counts:  false,
+	}
+	histc.Reset()
+	histc.Key.Hide = true
+	histc.XRange.MinMode = chart.RangeMode{Fixed: true, Value: 0}
+	// histc.Kernel = chart.BisquareKernel
+	for i, v := range s.Agents {
+		if i == mi {
+			histc.AddDataInt("Wealth", v.Wealth, ostyle)
+		} else {
+			histc.AddDataInt("Wealth", v.Wealth, style)
+		}
+	}
+	tgr := txtg.New(w, h)
+	histc.Plot(tgr)
+	fmt.Printf(tgr.String())
+	// return strings.TrimSuffix(tgr.String(), "\n")
 }
 
 func initializeSimulation(people, plays, gain, loss, init int) *SimulationState {
@@ -279,9 +332,11 @@ func main() {
 		fmt.Printf("Elapsed time between iterations: %d milliseconds", dur.Milliseconds())
 		fmt.Println()
 		fmt.Println()
-		w := s.printWealth()
-		h := s.printHistogram()
-		fmt.Printf("%s %s", w, h)
+		s.printWealth()
+		s.printHistogram()
+		// w := s.printWealth()
+		// h := s.printHistogram()
+		// fmt.Printf("%s %s", w, h)
 		// time.Sleep(fps * 4)
 		time.Sleep(fps)
 		j++
@@ -296,7 +351,11 @@ func main() {
 					number.Decimal(startingWealth[i]),
 					number.Decimal(s.Agents[i].CurrentWealth),
 					number.Decimal(s.TotalWealth))
-				fmt.Println(s.printWealth())
+				s.printWealth()
+				s.printHistogram()
+				// w := s.printWealth()
+				// h := s.printHistogram()
+				// fmt.Printf("%s %s", w, h)
 				os.Exit(0)
 			}
 		}
