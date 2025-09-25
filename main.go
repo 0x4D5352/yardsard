@@ -105,7 +105,7 @@ func (s *SimulationState) yardSaleIteration() {
 
 func (s *SimulationState) printWealth() {
 	width := s.TermWidth
-	height := (s.TermHeight / 3) + (s.TermHeight / 6) - 2
+	height := (s.TermHeight / 3) + (s.TermHeight / 6) - 4
 	floatWealth := make([]float64, len(s.Agents))
 	xAxis := make([]float64, len(s.Agents))
 	maxWealth := 0
@@ -157,7 +157,7 @@ func (s *SimulationState) printWealth() {
 func (s *SimulationState) printWealthHistory() {
 
 	w := s.TermWidth
-	h := (s.TermHeight / 3) + (s.TermHeight / 6) - 2
+	h := (s.TermHeight / 3) + (s.TermHeight / 6) - 4
 	m := 0
 	mi := -1
 	for i, v := range s.Agents {
@@ -191,8 +191,12 @@ func (s *SimulationState) printWealthHistory() {
 			LineWidth: 1,
 		})
 
+	scatter.XRange.ShowZero = true
+	scatter.YRange.ShowZero = true
 	scatter.XRange.MinMode = chart.RangeMode{Fixed: true, Value: 0}
 	scatter.YRange.MinMode = chart.RangeMode{Fixed: true, Value: 0}
+	scatter.XRange.TicSetting.Delta = 0
+	scatter.YRange.TicSetting.Delta = 0
 	tgr := txtg.New(w, h)
 	scatter.Plot(tgr)
 	fmt.Printf(tgr.String())
@@ -207,8 +211,7 @@ func initializeSimulation(people, plays, gain, loss, init int, equalWealth bool)
 		height = 24
 	}
 	s := SimulationState{
-		Agents: make([]*Agent, 0),
-		// PopWealth:  make([]int, people),
+		Agents:     make([]*Agent, 0),
 		PopIndices: make([]int, 0),
 		Population: people,
 		Plays:      plays,
@@ -229,11 +232,9 @@ func initializeSimulation(people, plays, gain, loss, init int, equalWealth bool)
 		s.Agents = append(s.Agents, &a)
 		s.TotalWealth += w
 	}
-	if equalWealth {
-		for s.TotalWealth < init*people {
-			s.Agents[rand.IntN(people)].CurrentWealth += 1
-			s.TotalWealth++
-		}
+	for s.TotalWealth < init*people {
+		s.Agents[rand.IntN(people)].CurrentWealth += 1
+		s.TotalWealth++
 	}
 	for i := range people {
 		s.Agents[i].Wealth = append(s.Agents[i].Wealth, s.Agents[i].CurrentWealth)
@@ -281,6 +282,7 @@ func main() {
 		fps = 0 * time.Millisecond
 	}
 	equalWealth := true
+	// equalWealth := false
 	p := message.NewPrinter(language.AmericanEnglish)
 	s := initializeSimulation(people, 100, 20, 17, init, equalWealth)
 	fmt.Println("Intitial Conditions:")
@@ -294,7 +296,6 @@ func main() {
 	p.Printf("Total Available Wealth: $%d\n", s.TotalWealth)
 	p.Printf("Plays per round: %d\n", s.Plays)
 	fmt.Printf("TermInfo: Width = %d, Height = %d\n", s.TermWidth, s.TermHeight)
-	// p.Println("Note: one period (.) represents one round.")
 	fmt.Printf("Press enter to start simulaton!")
 	startingWealth := make([]int, 0)
 	for _, v := range s.Agents {
@@ -307,12 +308,8 @@ func main() {
 	s.Now = time.Now()
 	j := 0
 	for {
-		// fmt.Printf("Starting round %d...\n", j)
-		// if j%100 == 0 {
-		// 	fmt.Println()
-		// }
-		// fmt.Printf(".")
 		s.yardSaleIteration()
+		fmt.Printf("\033[?25l")
 		fmt.Printf("\033[2J\033[H")
 		p.Printf("Population Size: %d | ", s.Population)
 		if equalWealth {
@@ -322,6 +319,7 @@ func main() {
 		}
 		p.Printf("Total Available Wealth: $%d | ", s.TotalWealth)
 		p.Printf("Plays per round: %d | ", s.Plays)
+		p.Printf("Round %d | ", number.Decimal(j))
 		now := time.Now()
 		dur := now.Sub(s.Now)
 		s.Now = now
@@ -329,17 +327,13 @@ func main() {
 		fmt.Println()
 		fmt.Println()
 		s.printWealth()
+		fmt.Println()
 		s.printWealthHistory()
-		// w := s.printWealth()
-		// h := s.printHistogram()
-		// fmt.Printf("%s %s", w, h)
-		// time.Sleep(fps * 4)
+		fmt.Printf("\033[?25h")
 		time.Sleep(fps)
 		j++
-		// fmt.Println()
 		for i := range s.Agents {
 			if s.Agents[i].CurrentWealth >= s.OligarchLimit {
-				// fmt.Printf(".")
 				fmt.Printf("\033[2J\033[H")
 				p.Printf("After %d rounds, Agent %d (started with $%d) has become an oligarch with $%d out of the available $%d!\n\n",
 					number.Decimal((j+1)*s.Plays),
@@ -348,10 +342,9 @@ func main() {
 					number.Decimal(s.Agents[i].CurrentWealth),
 					number.Decimal(s.TotalWealth))
 				s.printWealth()
+				fmt.Println()
 				s.printWealthHistory()
-				// w := s.printWealth()
-				// h := s.printHistogram()
-				// fmt.Printf("%s %s", w, h)
+				fmt.Printf("\033[?25h")
 				os.Exit(0)
 			}
 		}
