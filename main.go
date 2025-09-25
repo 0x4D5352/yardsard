@@ -103,10 +103,7 @@ func (s *SimulationState) yardSaleIteration() {
 	}
 }
 
-// func (s *SimulationState) printWealth() string {
 func (s *SimulationState) printWealth() {
-	// there's gotta be a better way to do this stuff
-	// width := (s.TermWidth / 4) + (s.TermWidth / 6)
 	width := s.TermWidth
 	height := (s.TermHeight / 3) + (s.TermHeight / 6) - 2
 	floatWealth := make([]float64, len(s.Agents))
@@ -129,8 +126,6 @@ func (s *SimulationState) printWealth() {
 	} else {
 		yMax = s.TotalWealth
 	}
-	// fmt.Println(len(xAxis))
-	// fmt.Println(len(floatWealth))
 	wealth := chart.Style{
 		Symbol:    'o',
 		LineColor: color.NRGBA{0xcc, 0x00, 0x00, 0xff},
@@ -142,7 +137,6 @@ func (s *SimulationState) printWealth() {
 		Title:        "Wealth Distribution",
 		SameBarWidth: true,
 		Stacked:      true,
-		// ShowVal:      1,
 	}
 	barc.Reset()
 	barc.Key.Hide = true
@@ -150,7 +144,6 @@ func (s *SimulationState) printWealth() {
 	barc.XRange.MaxMode = chart.RangeMode{Fixed: true, Value: float64(s.Population)}
 	barc.XRange.MinMode = chart.RangeMode{Fixed: true, Value: 0}
 	barc.YRange.ShowZero = true
-	// barc.YRange.MaxMode = chart.RangeMode{Fixed: true, Value: float64(s.TotalWealth)}
 	barc.YRange.MaxMode = chart.RangeMode{Fixed: true, Value: float64(yMax)}
 	barc.YRange.MinMode = chart.RangeMode{Fixed: true, Value: 0}
 	barc.AddDataPair("Wealth", xAxis, floatWealth, wealth)
@@ -159,16 +152,10 @@ func (s *SimulationState) printWealth() {
 	tgr := txtg.New(width, height)
 	barc.Plot(tgr)
 	fmt.Printf(tgr.String())
-	// return strings.TrimSuffix(tgr.String(), "\n")
 }
 
-// func (s *SimulationState) printHistogram() string {
-func (s *SimulationState) printHistogram() {
-	// TODO: figure out why this is printing the currency on the x axis
-	fmt.Printf("this doesn't work yet sorry")
-	return
+func (s *SimulationState) printWealthHistory() {
 
-	// w := (s.TermWidth / 4) + (s.TermWidth / 6)
 	w := s.TermWidth
 	h := (s.TermHeight / 3) + (s.TermHeight / 6) - 2
 	m := 0
@@ -181,45 +168,37 @@ func (s *SimulationState) printHistogram() {
 	}
 	if mi == -1 {
 		fmt.Printf("uh oh we don't have an oligarch (which is otherwise a good thing)")
-		// return "uh oh we don't have an oligarch (which is otherwise a good thing)"
 	}
-	style := chart.Style{
-		Symbol:    'x',
-		LineColor: color.NRGBA{0xcc, 0x00, 0x00, 0xff},
-		FillColor: color.NRGBA{0xff, 0x80, 0x80, 0xff},
-		LineStyle: chart.SolidLine,
-		LineWidth: 1,
+	scatter := &chart.ScatterChart{
+		Title: fmt.Sprintf("Oligarch: Agent %d", mi),
 	}
-	ostyle := chart.Style{
-		Symbol:    'o',
-		LineColor: color.NRGBA{0xcc, 0x00, 0x00, 0xff},
-		FillColor: color.NRGBA{0xff, 0x80, 0x80, 0xff},
-		LineStyle: chart.SolidLine,
-		LineWidth: 1,
+	scatter.Key.Hide = true
+	scatter.Reset()
+
+	timePoints := make([]float64, len(s.Agents[mi].Wealth))
+	wealthPoints := make([]float64, len(s.Agents[mi].Wealth))
+
+	for i, wealth := range s.Agents[mi].Wealth {
+		timePoints[i] = float64(i)
+		wealthPoints[i] = float64(wealth)
 	}
-	histc := chart.HistChart{
-		Title:   fmt.Sprintf("Oligarch: Agent %d", mi),
-		Stacked: true,
-		Counts:  false,
-	}
-	histc.Reset()
-	histc.Key.Hide = true
-	histc.XRange.MinMode = chart.RangeMode{Fixed: true, Value: 0}
-	// histc.Kernel = chart.BisquareKernel
-	for i, v := range s.Agents {
-		if i == mi {
-			histc.AddDataInt("Wealth", v.Wealth, ostyle)
-		} else {
-			histc.AddDataInt("Wealth", v.Wealth, style)
-		}
-	}
+
+	scatter.AddDataPair("Wealth", timePoints, wealthPoints,
+		chart.PlotStyleLines, chart.Style{
+			Symbol:    '+',
+			LineColor: color.NRGBA{0xcc, 0x00, 0x00, 0xff},
+			LineStyle: chart.SolidLine,
+			LineWidth: 1,
+		})
+
+	scatter.XRange.MinMode = chart.RangeMode{Fixed: true, Value: 0}
+	scatter.YRange.MinMode = chart.RangeMode{Fixed: true, Value: 0}
 	tgr := txtg.New(w, h)
-	histc.Plot(tgr)
+	scatter.Plot(tgr)
 	fmt.Printf(tgr.String())
-	// return strings.TrimSuffix(tgr.String(), "\n")
 }
 
-func initializeSimulation(people, plays, gain, loss, init int) *SimulationState {
+func initializeSimulation(people, plays, gain, loss, init int, equalWealth bool) *SimulationState {
 	fd := int(os.Stdin.Fd())
 	width, height, err := term.GetSize(fd)
 	if err != nil {
@@ -240,14 +219,21 @@ func initializeSimulation(people, plays, gain, loss, init int) *SimulationState 
 	}
 	for i := range people {
 		s.PopIndices = append(s.PopIndices, i)
-		w := rand.IntN(init) + 1
+		var w int
+		if equalWealth {
+			w = init
+		} else {
+			w = rand.IntN(init) + 1
+		}
 		a := Agent{CurrentWealth: w, Wealth: make([]int, 0)}
 		s.Agents = append(s.Agents, &a)
 		s.TotalWealth += w
 	}
-	for s.TotalWealth < init*people {
-		s.Agents[rand.IntN(people)].CurrentWealth += 1
-		s.TotalWealth++
+	if equalWealth {
+		for s.TotalWealth < init*people {
+			s.Agents[rand.IntN(people)].CurrentWealth += 1
+			s.TotalWealth++
+		}
 	}
 	for i := range people {
 		s.Agents[i].Wealth = append(s.Agents[i].Wealth, s.Agents[i].CurrentWealth)
@@ -290,15 +276,21 @@ func main() {
 	if err = scanner.Err(); err != nil {
 		fmt.Printf("Error reading input: %v\n", err)
 	}
-	fps := (1000 / 100) * time.Millisecond
+	fps := (1000 / 60) * time.Millisecond
 	if people > 3_000 {
 		fps = 0 * time.Millisecond
 	}
+	equalWealth := true
 	p := message.NewPrinter(language.AmericanEnglish)
-	s := initializeSimulation(people, 100, 20, 17, init)
+	s := initializeSimulation(people, 100, 20, 17, init, equalWealth)
 	fmt.Println("Intitial Conditions:")
 	p.Printf("Population Size: %d\n", s.Population)
-	p.Printf("Possible Max Starting Wealth: $%d\n", number.Decimal(init))
+	if equalWealth {
+		p.Printf("Max Starting Wealth: $%d\n", number.Decimal(init))
+	} else {
+
+		p.Printf("Possible Max Starting Wealth: $%d\n", number.Decimal(init))
+	}
 	p.Printf("Total Available Wealth: $%d\n", s.TotalWealth)
 	p.Printf("Plays per round: %d\n", s.Plays)
 	fmt.Printf("TermInfo: Width = %d, Height = %d\n", s.TermWidth, s.TermHeight)
@@ -323,7 +315,11 @@ func main() {
 		s.yardSaleIteration()
 		fmt.Printf("\033[2J\033[H")
 		p.Printf("Population Size: %d | ", s.Population)
-		p.Printf("Possible Max Starting Wealth: $%d | ", number.Decimal(init))
+		if equalWealth {
+			p.Printf("Max Starting Wealth: $%d | ", number.Decimal(init))
+		} else {
+			p.Printf("Possible Max Starting Wealth: $%d | ", number.Decimal(init))
+		}
 		p.Printf("Total Available Wealth: $%d | ", s.TotalWealth)
 		p.Printf("Plays per round: %d | ", s.Plays)
 		now := time.Now()
@@ -333,7 +329,7 @@ func main() {
 		fmt.Println()
 		fmt.Println()
 		s.printWealth()
-		s.printHistogram()
+		s.printWealthHistory()
 		// w := s.printWealth()
 		// h := s.printHistogram()
 		// fmt.Printf("%s %s", w, h)
@@ -352,7 +348,7 @@ func main() {
 					number.Decimal(s.Agents[i].CurrentWealth),
 					number.Decimal(s.TotalWealth))
 				s.printWealth()
-				s.printHistogram()
+				s.printWealthHistory()
 				// w := s.printWealth()
 				// h := s.printHistogram()
 				// fmt.Printf("%s %s", w, h)
