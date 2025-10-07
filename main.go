@@ -7,7 +7,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"strconv"
-	// "strings"
+	"strings"
 	"sync"
 	"time"
 
@@ -103,7 +103,7 @@ func (s *SimulationState) yardSaleIteration() {
 	}
 }
 
-func (s *SimulationState) printWealth() {
+func (s *SimulationState) printWealth() string {
 	width := s.TermWidth
 	height := (s.TermHeight / 3) + (s.TermHeight / 6) - 4
 	floatWealth := make([]float64, len(s.Agents))
@@ -127,7 +127,7 @@ func (s *SimulationState) printWealth() {
 		yMax = s.TotalWealth
 	}
 	wealth := chart.Style{
-		Symbol:    'o',
+		Symbol:    '$',
 		LineColor: color.NRGBA{0xcc, 0x00, 0x00, 0xff},
 		FillColor: color.NRGBA{0xff, 0x80, 0x80, 0xff},
 		LineStyle: chart.SolidLine,
@@ -151,10 +151,10 @@ func (s *SimulationState) printWealth() {
 	barc.YRange.TicSetting.Delta = 0
 	tgr := txtg.New(width, height)
 	barc.Plot(tgr)
-	fmt.Printf(tgr.String())
+	return tgr.String()
 }
 
-func (s *SimulationState) printWealthHistory() {
+func (s *SimulationState) printWealthHistory() string {
 
 	w := s.TermWidth
 	h := (s.TermHeight / 3) + (s.TermHeight / 6) - 4
@@ -199,7 +199,7 @@ func (s *SimulationState) printWealthHistory() {
 	scatter.YRange.TicSetting.Delta = 0
 	tgr := txtg.New(w, h)
 	scatter.Plot(tgr)
-	fmt.Printf(tgr.String())
+	return tgr.String()
 }
 
 func initializeSimulation(people, plays, gain, loss, init int, equalWealth bool) *SimulationState {
@@ -246,7 +246,7 @@ func initializeSimulation(people, plays, gain, loss, init int, equalWealth bool)
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 	fmt.Println("Welcome to yardsard, a Yard Sale Model Simulator!")
-	fmt.Printf("Please enter the number of people to simulate (default = 100):")
+	fmt.Printf("Please enter the number of people to simulate (default = 100): ")
 	people := 100
 	var err error
 	if scanner.Scan() {
@@ -262,7 +262,7 @@ func main() {
 	if err = scanner.Err(); err != nil {
 		fmt.Printf("Error reading input: %v\n", err)
 	}
-	fmt.Printf("Please enter the amount of money each person should receive (default = $100):")
+	fmt.Printf("Please enter the amount of money each person should receive (default = $100): ")
 	init := 100
 	if scanner.Scan() {
 		input := scanner.Text()
@@ -282,6 +282,16 @@ func main() {
 		fps = 0 * time.Millisecond
 	}
 	equalWealth := true
+	fmt.Printf("Should wealth be distributed equally for a level playing field? [Y]es or [N]o? (default = y): ")
+	if scanner.Scan() {
+		input := scanner.Text()
+		if input != "" && strings.ToLower(strings.Split(input, "")[0]) == "n" {
+			equalWealth = false
+		}
+	}
+	if err = scanner.Err(); err != nil {
+		fmt.Printf("Error reading input: %v\n", err)
+	}
 	// equalWealth := false
 	p := message.NewPrinter(language.AmericanEnglish)
 	s := initializeSimulation(people, 100, 20, 17, init, equalWealth)
@@ -308,28 +318,29 @@ func main() {
 	s.Now = time.Now()
 	j := 0
 	for {
+		var sb strings.Builder
 		s.yardSaleIteration()
-		fmt.Printf("\033[?25l")
-		fmt.Printf("\033[2J\033[H")
-		p.Printf("Population Size: %d | ", s.Population)
+		sb.WriteString("\033[?25l")
+		sb.WriteString("\033[2J\033[H")
+		sb.WriteString(p.Sprintf("Population Size: %d | ", s.Population))
 		if equalWealth {
-			p.Printf("Max Starting Wealth: $%d | ", number.Decimal(init))
+			sb.WriteString(p.Sprintf("Max Starting Wealth: $%d | ", number.Decimal(init)))
 		} else {
-			p.Printf("Possible Max Starting Wealth: $%d | ", number.Decimal(init))
+			sb.WriteString(p.Sprintf("Possible Max Starting Wealth: $%d | ", number.Decimal(init)))
 		}
-		p.Printf("Total Available Wealth: $%d | ", s.TotalWealth)
-		p.Printf("Plays per round: %d | ", s.Plays)
-		p.Printf("Round %d | ", number.Decimal(j))
+		sb.WriteString(p.Sprintf("Total Available Wealth: $%d | ", s.TotalWealth))
+		sb.WriteString(p.Sprintf("Plays per round: %d | ", s.Plays))
+		sb.WriteString(p.Sprintf("Round %d | ", number.Decimal(j)))
 		now := time.Now()
 		dur := now.Sub(s.Now)
 		s.Now = now
-		fmt.Printf("Elapsed time between iterations: %d milliseconds", dur.Milliseconds())
-		fmt.Println()
-		fmt.Println()
-		s.printWealth()
-		fmt.Println()
-		s.printWealthHistory()
-		fmt.Printf("\033[?25h")
+		sb.WriteString(fmt.Sprintf("Elapsed time between iterations: %d milliseconds", dur.Milliseconds()))
+		sb.WriteString("\n\n")
+		sb.WriteString(s.printWealth())
+		sb.WriteString("\n")
+		sb.WriteString(s.printWealthHistory())
+		sb.WriteString("\033[?25h")
+		fmt.Println(sb.String())
 		time.Sleep(fps)
 		j++
 		for i := range s.Agents {
@@ -341,9 +352,9 @@ func main() {
 					number.Decimal(startingWealth[i]),
 					number.Decimal(s.Agents[i].CurrentWealth),
 					number.Decimal(s.TotalWealth))
-				s.printWealth()
+				fmt.Println(s.printWealth())
 				fmt.Println()
-				s.printWealthHistory()
+				fmt.Println(s.printWealthHistory())
 				fmt.Printf("\033[?25h")
 				os.Exit(0)
 			}
